@@ -1,0 +1,27 @@
+Third-party software and models in Dialed
+=========================================
+
+The DJ's natural voice (folder tts/)
+- Kokoro-82M speech model by hexgrad, Apache License 2.0. Not included in this folder: your browser
+  downloads it on first use from https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX
+- kokoro-js 1.2.1, Apache License 2.0.
+- Transformers.js 3.8.1 by Hugging Face, Apache License 2.0 (bundled inside tts/kokoro.web.js).
+- phonemizer 1.2.1, Apache License 2.0 (bundled inside tts/kokoro.web.js). It embeds eSpeak NG compiled to
+  WebAssembly, which is licensed under the GNU General Public License v3 or later.
+  eSpeak NG source code: https://github.com/espeak-ng/espeak-ng
+- ONNX Runtime Web 1.22 by Microsoft, MIT License (tts/ort/ and bundled inside tts/kokoro.web.js).
+License files that ship with kokoro-js, Transformers.js and phonemizer are in tts/licenses/.
+ONNX Runtime Web is MIT licensed: https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+
+Keyless song search (ytm.py)
+- The request format follows ytmusicapi by sigma67, MIT License: https://github.com/sigma67/ytmusicapi
+- Dialed is not affiliated with, endorsed by or sponsored by YouTube or Google. This route is unofficial and
+  goes against YouTube's terms of service; see README.md.
+
+Phone support\n- NoSleep.js by Rich Tibbett (the tiny keep-awake video), MIT License: https://github.com/richtr/NoSleep.js\n- qrcode-generator by Kazuhiko Arase (the QR code on phone.html), MIT License: https://github.com/kazuhikoarase/qrcode-generator\n\nFonts (folder fonts/)
+- Barlow Semi Condensed and Doto, SIL Open Font License 1.1 (license texts are in fonts/).
+
+License texts
+- Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+- GNU General Public License v3: https://www.gnu.org/licenses/gpl-3.0.html
+- MIT License: https://opensource.org/license/mit

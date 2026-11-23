@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dialed on your phone</title>
+<style>
+  body{margin:0;background:#d5d8d3;color:#171b1f;font:500 17px/1.45 'Barlow Semi Condensed','Segoe UI',system-ui,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:28px 22px 60px}
+  h1{font-size:34px;margin:0 0 6px;letter-spacing:-.015em} h2{font-size:21px;margin:26px 0 6px}
+  .card{background:#e7e9e4;border-radius:14px;padding:18px 20px;box-shadow:0 0 0 1px rgba(23,27,31,.16)}
+  .qr{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  #qr svg{width:220px;height:220px;display:block;background:#fff;border-radius:10px;padding:6px;box-sizing:content-box}
+  .url{font:700 24px/1.2 ui-monospace,Consolas,monospace;word-break:break-all}
+  .bad{background:#fbe3d9;box-shadow:0 0 0 1px rgba(163,48,10,.4)}
+  code{background:rgba(23,27,31,.09);padding:1px 6px;border-radius:5px}
+  ol,ul{padding-left:22px;margin:6px 0} li{margin:4px 0} .dim{color:#4b535a}
+  label{display:block;margin:4px 0} select{font:inherit;padding:6px 8px;border-radius:6px}
+</style></head><body><main>
+<h1>Use Dialed on your phone</h1>
+<p class="dim">Your phone and this computer need to be on the same Wi-Fi.</p>
+<div id="out" class="card">Checking\u2026</div>
+<h2>Add it to your home screen (optional)</h2>
+<div class="card"><ul>
+  <li><b>iPhone:</b> open the address in Safari, tap the Share button, then <b>Add to Home Screen</b>.</li>
+  <li><b>Android:</b> open it in Chrome or Brave, tap the \u22EE menu, then <b>Add to Home screen</b> (or <b>Install app</b>).</li>
+</ul></div>
+<h2>Good to know</h2>
+<div class="card"><ul>
+  <li>Keep the screen on with Dialed in front: YouTube pauses its player when a phone's screen locks. Dialed asks the phone to stay awake while music plays.</li>
+  <li><b>iPhone</b> web pages can't change volume, so there is no crossfade there: songs play back to back and the DJ talks between them.</li>
+  <li>Phone mode lets other devices on your Wi-Fi reach Dialed. Use it on networks you trust, and close the Dialed window when you're done.</li>
+</ul></div>
+</main>
+<script src="qrcode.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out');
+  function show(url) {
+    var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+    document.getElementById('addr').textContent = url;
+  }
+  fetch('/api/lan').then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.lan) {
+      out.className = 'card bad';
+      out.innerHTML = '<b>Phone mode is off.</b> Close the Dialed window and start it again with <code>start-phone.bat</code> (Windows) or <code>./start-phone.sh</code> (Mac/Linux), then reload this page.';
+      return;
+    }
+    if (!j.urls.length) { out.className = 'card bad'; out.textContent = 'Phone mode is on, but no Wi-Fi address was found. Check this computer is connected to your network.'; return; }
+    out.innerHTML = '<div class="qr"><div id="qr"></div><div><div class="dim">Scan with your phone\u2019s camera, or type:</div><div class="url" id="addr"></div><div id="pick"></div></div></div>';
+    show(j.urls[0]);
+    if (j.urls.length > 1) {
+      var s = document.createElement('select');
+      j.urls.forEach(function (u) { var o = document.createElement('option'); o.textContent = u; s.appendChild(o); });
+      s.onchange = function () { show(s.value); };
+      var l = document.createElement('label'); l.textContent = 'This computer has several addresses; if one doesn\u2019t work, try another: '; l.appendChild(s);
+      document.getElementById('pick').appendChild(l);
+    }
+  }).catch(function () { out.className = 'card bad'; out.textContent = 'Couldn\u2019t reach the Dialed server. Is it still running?'; });
+})();
+</script></body></html>

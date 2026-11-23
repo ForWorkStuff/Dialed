@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Dialed player check</title>
+<style>
+body{font:16px/1.45 system-ui,"Segoe UI",sans-serif;max-width:780px;margin:32px auto;padding:0 18px;color:#171b1f;background:#d5d8d3}
+h1{font-size:28px;margin-bottom:4px}
+p{margin:8px 0}
+table{width:100%;border-collapse:collapse;background:#e9ebe6;border-radius:8px;overflow:hidden;margin:14px 0}
+td{padding:9px 12px;border-bottom:1px solid #c3c7c2;vertical-align:top}
+td:first-child{width:190px;font-weight:700}
+.ok{color:#0d6b2f}.bad{color:#a3300a;font-weight:600}.wait{color:#6c747b}
+button{font:inherit;font-weight:600;padding:8px 14px;border-radius:7px;border:1px solid #8a908a;background:#f3f4f0;cursor:pointer}
+button[disabled]{opacity:.5;cursor:default}
+#box{width:356px;height:200px;background:#000;margin:14px 0;border-radius:4px;overflow:hidden}
+</style>
+</head>
+<body>
+<h1>Dialed player check</h1>
+<p>Dialed depends on one thing: YouTube's embedded player. This page tests just that, step by step. It doesn't use your keys.</p>
+<table id="t"></table>
+<div id="box"><div id="p"></div></div>
+<div id="box2" style="width:178px;height:100px;overflow:hidden;background:#000;border-radius:4px"><div id="p2"></div></div>
+<p><button id="go" disabled>Play test (about 5 seconds, quiet)</button> <button id="again">Run again</button></p>
+<script>
+(function () {
+  'use strict';
+  var SEED = 'M7lc1UVf-VE', T0 = performance.now();
+  var secs = function () { return ((performance.now() - T0) / 1000).toFixed(1) + 's'; };
+  var CODES = { 2: 'invalid request', 5: 'HTML5 player error', 100: 'video not found', 101: 'embedding disabled by the video owner', 150: 'embedding disabled by the video owner', 153: 'YouTube did not get a Referer from this page (it was opened from a file, or a privacy setting strips it)' };
+  var tbl = document.getElementById('t'), R = {}, problems = [];
+  function row(id, label) { var tr = document.createElement('tr'); tr.innerHTML = '<td>' + label + '</td><td class="wait">waiting\u2026</td>'; tbl.appendChild(tr); R[id] = tr.lastChild; }
+  function set(id, text, cls) { R[id].textContent = text; R[id].className = cls || ''; }
+  function skipRest() { ['frame', 'frame2', 'play'].forEach(function (id) { if (R[id].className === 'wait' && /waiting/.test(R[id].textContent)) set(id, 'not tested (needs the player script first)', 'wait'); }); }
+  function bad(id, text, hint) { set(id, text + (hint ? ' ' + hint : ''), 'bad'); problems.push(text); finish(); }
+  [['addr', 'Address'], ['browser', 'Browser'], ['script', 'YouTube player script'], ['frame', 'Player frame (youtube.com)'], ['frame2', 'Player frame (youtube-nocookie.com)'], ['play', 'Playback'], ['verdict', 'Verdict']].forEach(function (r) { row(r[0], r[1]); });
+  var UNBLOCK = 'Something is blocking it. In Brave, click the lion icon and turn Shields down for this page, then press Run again.';
+  var scriptDone = false, scriptLoaded = false, frameDone = false, frameErr = '', playOk = false, playing = false, player = null, frameOk = false, frame2Ok = false, frame2Done = false;
+
+  function finish() {
+    if (problems.length) {
+      var alt = frame2Ok && !frameOk ? ' But the privacy-enhanced host works: in Dialed open Settings, set "YouTube player host" to youtube-nocookie.com, then reload.' : ' Dialed can\u2019t start until this is fixed.';
+      set('verdict', 'Not working: ' + problems[0].replace(/\.$/, '') + '.' + alt, 'bad');
+    }
+    else if (playOk) set('verdict', 'Everything Dialed needs from YouTube works. If Dialed itself still says it is loading, tell me.', 'ok');
+    else if (frameDone) set('verdict', 'The player starts. Press the play test to confirm playback.', 'wait');
+  }
+
+  // 1. address
+  if (location.protocol === 'file:') bad('addr', 'Opened from a file.', 'YouTube won\u2019t play for pages opened from disk. Run start.bat and open http://localhost:8765/check.html');
+  else set('addr', location.href, 'ok');
+
+  // 2. browser
+  var ua = navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 100);
+  if (navigator.brave && navigator.brave.isBrave) navigator.brave.isBrave().then(function (b) { set('browser', (b ? 'Brave (Shields apply). ' : '') + ua); });
+  else set('browser', ua);
+
+  // 3. YouTube's player script
+  function ready() { return !!(window.YT && window.YT.Player); }
+  function gotApi() { if (scriptDone) return; scriptDone = true; clearTimeout(scriptTimer); clearInterval(poll); set('script', 'Loaded in ' + secs(), 'ok'); startFrame(); startFrame2(); }
+  var scriptTimer = setTimeout(function () {
+    if (scriptDone) return; scriptDone = true; clearInterval(poll);
+    bad('script', scriptLoaded ? 'The script loaded, but YouTube\u2019s player library never started.' : 'No answer from www.youtube.com after 8 seconds.', UNBLOCK); skipRest();
+  }, 8000);
+  window.onYouTubeIframeAPIReady = function () { if (ready()) gotApi(); };
+  var poll = setInterval(function () { if (ready()) gotApi(); }, 150);
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  s.onload = function () { scriptLoaded = true; };
+  s.onerror = function () { if (scriptDone) return; scriptDone = true; clearTimeout(scriptTimer); clearInterval(poll); bad('script', 'Blocked.', UNBLOCK); skipRest(); };
+  document.head.appendChild(s);
+
+  // 4. a player frame
+  function startFrame() {
+    set('frame', 'creating\u2026', 'wait');
+    var t = setTimeout(function () {
+      if (frameDone) return; frameDone = true;
+      bad('frame', 'No answer from the player frame after 10 seconds.' + (frameErr ? ' Last error: ' + frameErr + '.' : ''), 'Check that nothing is blocking youtube.com, and that this page is open at http://localhost.');
+    }, 10000);
+    var vars = { playsinline: 1, rel: 0 };
+    if (location.protocol.indexOf('http') === 0) vars.origin = location.origin;
+    try {
+      player = new YT.Player('p', {
+        width: 356, height: 200, videoId: SEED, playerVars: vars,
+        events: {
+          onReady: function () { if (frameDone) return; frameDone = true; frameOk = true; clearTimeout(t); set('frame', 'Ready in ' + secs(), 'ok'); document.getElementById('go').disabled = false; set('play', 'Press the play test button above.', 'wait'); finish(); },
+          onError: function (e) {
+            var c = e && e.data; frameErr = c + ' (' + (CODES[c] || 'unknown') + ')';
+            if (!frameDone) set('frame', 'Error ' + frameErr, 'bad');
+            else if (playing && !playOk) { playing = false; bad('play', 'Error ' + frameErr + '.'); }
+          },
+        },
+      });
+    } catch (e) { frameDone = true; clearTimeout(t); bad('frame', 'Could not create the player: ' + e.message); }
+  }
+
+  // 4b. the same test on YouTube's privacy-enhanced host
+  function startFrame2() {
+    set('frame2', 'creating\u2026', 'wait');
+    var t = setTimeout(function () { if (frame2Done) return; frame2Done = true; set('frame2', 'No answer after 10 seconds.', 'bad'); finish(); }, 10000);
+    var vars = { playsinline: 1, rel: 0 };
+    if (location.protocol.indexOf('http') === 0) vars.origin = location.origin;
+    try {
+      new YT.Player('p2', { host: 'https://www.youtube-nocookie.com', width: 178, height: 100, videoId: SEED, playerVars: vars, events: {
+        onReady: function () { if (frame2Done) return; frame2Done = true; frame2Ok = true; clearTimeout(t); set('frame2', 'Ready in ' + secs(), 'ok'); finish(); },
+        onError: function (e) { if (!frame2Done) set('frame2', 'Error ' + e.data + ' (' + (CODES[e.data] || 'unknown') + ')', 'bad'); },
+      } });
+    } catch (e) { frame2Done = true; clearTimeout(t); set('frame2', 'Could not create: ' + e.message, 'bad'); finish(); }
+  }
+
+  // 5. playback
+  document.getElementById('go').onclick = function () {
+    if (!player || playing) return;
+    playing = true; playOk = false; set('play', 'starting\u2026', 'wait');
+    try { player.setVolume(15); player.playVideo(); } catch (e) { playing = false; bad('play', 'Couldn\u2019t start: ' + e.message); return; }
+    var n = 0, iv = setInterval(function () {
+      n++;
+      var st = -2; try { st = player.getPlayerState(); } catch (e) { /* ignore */ }
+      if (st === 1) {
+        clearInterval(iv); playOk = true;
+        set('play', 'Playing (a ' + Math.round(player.getDuration()) + ' second video, volume set low). You should hear it now.', 'ok'); finish();
+        setTimeout(function () { try { player.pauseVideo(); } catch (e) { /* ignore */ } playing = false; }, 4000);
+      } else if (n > 25 && playing) {
+        clearInterval(iv); playing = false;
+        bad('play', 'It didn\u2019t start (player state ' + st + ').' + (frameErr ? ' Last error: ' + frameErr + '.' : ''));
+      }
+    }, 400);
+  };
+  document.getElementById('again').onclick = function () { location.reload(); };
+})();
+</script>
+<h2 style="margin-top:28px;font-size:18px">Keyless song search</h2>
+<p>Tests the unofficial YouTube Music search Dialed uses when no API key is set. It runs on this computer, through the Dialed server.</p>
+<button id="srchBtn">Run search test</button>
+<pre id="srchOut">Not run yet.</pre>
+<script>
+document.getElementById('srchBtn').onclick = function () {
+  var out = document.getElementById('srchOut'); out.textContent = 'Testing\u2026';
+  fetch('/api/ytm/selftest').then(function (r) {
+    if (r.status === 404) { out.textContent = 'Not available: this server is the old one. Close it and start Dialed with the new start.bat or start.sh.'; return null; }
+    return r.json();
+  }).then(function (j) {
+    if (!j) return;
+    out.textContent = j.ok ? 'WORKING. Read ' + j.count + ' songs in ' + j.ms + ' ms.\n' + j.sample.map(function (t) { return ' - ' + t.artist + ' / ' + t.title + ' (' + t.dur + 's, id ' + t.id + ')'; }).join('\n')
+                           : 'NOT WORKING (' + (j.code || '?') + '): ' + j.error + '\nIf this keeps happening, add a YouTube API key in Dialed settings and choose the official route.';
+  }).catch(function () { out.textContent = 'The Dialed server is not answering.'; });
+};
+</script>
+</body>
+</html>
